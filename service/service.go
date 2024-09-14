@@ -42,29 +42,6 @@ func (s *Service) Register(user model.User) error {
 	return nil
 }
 
-// func (s *Service) Login(username string, password string) error {
-// 	if s.authRepository.IsLoggedIn() == false {
-// 		return errors.New("user already login")
-// 	}
-
-// 	user, err := s.repository.GetUserByUsername(username)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if IsEmptyUser(user) {
-// 		return errors.New("username or password is wrong")
-// 	}
-
-// 	if user.Password != password {
-// 		return errors.New("username or password is wrong")
-// 	}
-
-// 	s.authRepository.Login(username)
-
-// 	return nil
-// }
-
 func (s *Service) Login(username string, password string) error {
 	log.Printf("Checking if user is already logged in: %v", s.authRepository.IsLoggedIn())
 	if s.authRepository.IsLoggedIn() {

@@ -35,38 +35,42 @@ func (r *Repository) GetUserByUsername(username string) (model.User, error) {
 	return user, nil
 }
 
-func (r *Repository) AddPhoto(photo model.Photo) (uint, error) {
-	err := r.db.Create(&photo).Error
+// Add Memorize record
+func (r *Repository) AddMemorize(memorize model.Memorize) (uint, error) {
+	err := r.db.Create(&memorize).Error
 	if err != nil {
 		return 0, err
 	}
-	return photo.ID, nil
+	return memorize.ID, nil
 }
 
-func (r *Repository) GetPhotoByID(photoID uint) (model.Photo, error) {
-	var photo model.Photo
-	err := r.db.First(&photo, photoID).Error
+// Get Memorize record by ID
+func (r *Repository) GetMemorizeByID(memorizeID uint) (model.Memorize, error) {
+	var memorize model.Memorize
+	err := r.db.First(&memorize, memorizeID).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return model.Photo{}, nil
+			return model.Memorize{}, nil
 		}
-		return model.Photo{}, err
+		return model.Memorize{}, err
 	}
-	return photo, nil
+	return memorize, nil
 }
 
-func (r *Repository) DeletePhoto(photoID uint) error {
-	result := r.db.Delete(&model.Photo{}, photoID)
+// Delete Memorize record by ID
+func (r *Repository) DeleteMemorize(memorizeID uint) error {
+	result := r.db.Delete(&model.Memorize{}, memorizeID)
 	if result.Error != nil {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return errors.New("photo not found")
+		return errors.New("memorize record not found")
 	}
 	return nil
 }
 
-func (r *Repository) GetAllPhotosByUser(username string) ([]model.Photo, error) {
+// Get all Memorize records for a user
+func (r *Repository) GetAllMemorizesByUser(username string) ([]model.Memorize, error) {
 	var user model.User
 	err := r.db.Where("username = ?", username).First(&user).Error
 	if err != nil {
@@ -76,10 +80,10 @@ func (r *Repository) GetAllPhotosByUser(username string) ([]model.Photo, error) 
 		return nil, err
 	}
 
-	var photos []model.Photo
-	err = r.db.Where("user_id = ?", user.ID).Find(&photos).Error
+	var memorizes []model.Memorize
+	err = r.db.Where("user_id = ?", user.ID).Find(&memorizes).Error
 	if err != nil {
 		return nil, err
 	}
-	return photos, nil
+	return memorizes, nil
 }

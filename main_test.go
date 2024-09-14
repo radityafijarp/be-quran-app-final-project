@@ -35,29 +35,25 @@ var _ = Describe("Main", Ordered, func() {
 	}
 
 	BeforeAll(func() {
-
 		db, err := main.Connect(&dbCredential)
 		if err != nil {
 			panic("failed connecting to database, please check Connect credentials")
 		}
 
-		if err = db.Migrator().DropTable("users", "photos"); err != nil {
-			panic("failed droping table:" + err.Error())
+		// Drop tables in reverse order of their dependencies
+		if err = db.Migrator().DropTable("memorizes", "users"); err != nil {
+			panic("failed dropping tables:" + err.Error())
 		}
 
-		err = db.AutoMigrate(&model.User{}, &model.Photo{})
+		err = db.AutoMigrate(&model.User{}, &model.Memorize{})
 		if err != nil {
-			panic("failed migrating table:" + err.Error())
+			panic("failed migrating tables:" + err.Error())
 		}
 
 		dbRepo = dbRepository.NewRepository(db)
 		authRepo = authRepository.NewRepository()
 
-		_, err = main.Connect(&dbCredential)
-		if err != nil {
-			panic("failed connecting to database, please check Connect function")
-		}
-
+		// Insert test data
 		user := model.User{
 			Username:   "user",
 			Password:   "password",
@@ -67,23 +63,27 @@ var _ = Describe("Main", Ordered, func() {
 		}
 
 		err = db.Create(&user).Error
-
 		if err != nil {
 			panic("failed creating user")
 		}
 
-		photo := model.Photo{
-			UserID:    1,
-			URL:       "https://www.google.com",
-			Caption:   "Caption",
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+		memorize := model.Memorize{
+			UserID:          user.ID, // Use the ID of the created user
+			SurahName:       "Al-Fatiha",
+			AyahRange:       "1-7",
+			TotalAyah:       7,
+			DateStarted:     time.Now(),
+			DateCompleted:   time.Time{}, // Empty if not completed
+			ReviewFrequency: "Weekly",
+			LastReviewDate:  time.Now(),
+			AccuracyLevel:   "High",
+			NextReviewDate:  time.Now().AddDate(0, 0, 7), // Next review in a week
+			Notes:           "Focused on tajweed",
 		}
 
-		err = db.Create(&photo).Error
-
+		err = db.Create(&memorize).Error
 		if err != nil {
-			panic("failed creating photo")
+			panic("failed creating memorize record")
 		}
 	})
 
@@ -184,52 +184,58 @@ var _ = Describe("Main", Ordered, func() {
 		})
 	})
 
-	When("GET /photos", func() {
+	When("GET /memorizes", func() {
 		It("should return 401 Unauthorized if user is not logged in", func() {
-			req, _ := http.NewRequest(http.MethodGet, "/photos", nil)
+			req, _ := http.NewRequest(http.MethodGet, "/memorizes", nil)
 			router.ServeHTTP(resp, req)
 
 			Expect(resp.Code).To(Equal(http.StatusUnauthorized))
 			Expect(resp.Body.String()).To(ContainSubstring("Unauthorized"))
 		})
 
-		It("should return photos if user is logged in", func() {
+		It("should return memorization records if user is logged in", func() {
 			// Log in the user first
 			authRepo.Login("user")
 
-			req, _ := http.NewRequest(http.MethodGet, "/photos", nil)
+			req, _ := http.NewRequest(http.MethodGet, "/memorizes", nil)
 			router.ServeHTTP(resp, req)
 
 			Expect(resp.Code).To(Equal(http.StatusOK))
 		})
 	})
 
-	When("POST /photos", func() {
+	When("POST /memorizes", func() {
 		It("should return 401 Unauthorized if user is not logged in", func() {
-			photo := model.Photo{
-				UserID:  1,
-				URL:     "https://example.com/photo.jpg",
-				Caption: "A beautiful sunset",
+			memorize := model.Memorize{
+				SurahName:       "Al-Baqarah",
+				AyahRange:       "1-10",
+				TotalAyah:       10,
+				DateStarted:     time.Now(),
+				ReviewFrequency: "Daily",
+				Notes:           "Initial review",
 			}
-			body, _ := json.Marshal(photo)
-			req, _ := http.NewRequest(http.MethodPost, "/photos", bytes.NewBuffer(body))
+			body, _ := json.Marshal(memorize)
+			req, _ := http.NewRequest(http.MethodPost, "/memorizes", bytes.NewBuffer(body))
 			router.ServeHTTP(resp, req)
 
 			Expect(resp.Code).To(Equal(http.StatusUnauthorized))
 			Expect(resp.Body.String()).To(ContainSubstring("Unauthorized"))
 		})
 
-		It("should add a new photo if user is logged in", func() {
+		It("should add a new memorization record if user is logged in", func() {
 			// Log in the user first
 			authRepo.Login("user")
 
-			photo := model.Photo{
-				UserID:  1,
-				URL:     "https://example.com/photo.jpg",
-				Caption: "A beautiful sunset",
+			memorize := model.Memorize{
+				SurahName:       "Al-Baqarah",
+				AyahRange:       "1-10",
+				TotalAyah:       10,
+				DateStarted:     time.Now(),
+				ReviewFrequency: "Daily",
+				Notes:           "Initial review",
 			}
-			body, _ := json.Marshal(photo)
-			req, _ := http.NewRequest(http.MethodPost, "/photos", bytes.NewBuffer(body))
+			body, _ := json.Marshal(memorize)
+			req, _ := http.NewRequest(http.MethodPost, "/memorizes", bytes.NewBuffer(body))
 			router.ServeHTTP(resp, req)
 
 			Expect(resp.Code).To(Equal(http.StatusCreated))
@@ -238,84 +244,96 @@ var _ = Describe("Main", Ordered, func() {
 			err := json.Unmarshal(resp.Body.Bytes(), &response)
 			Expect(err).To(BeNil())
 
-			photoID, ok := response["photo_id"].(float64)
+			memorizeID, ok := response["memorize_id"].(float64)
 			Expect(ok).To(BeTrue())
-			Expect(photoID).To(BeNumerically(">", 0))
+			Expect(memorizeID).To(BeNumerically(">", 0))
 
-			addedPhoto, err := dbRepo.GetPhotoByID(uint(photoID))
+			addedMemorize, err := dbRepo.GetMemorizeByID(uint(memorizeID))
 			Expect(err).To(BeNil())
-			Expect(addedPhoto.Caption).To(Equal("A beautiful sunset"))
+			Expect(addedMemorize.SurahName).To(Equal("Al-Baqarah"))
+			Expect(addedMemorize.AyahRange).To(Equal("1-10"))
+			Expect(addedMemorize.TotalAyah).To(Equal(10))
+			Expect(addedMemorize.DateStarted).To(BeTemporally("~", time.Now(), time.Minute))
+			Expect(addedMemorize.ReviewFrequency).To(Equal("Daily"))
+			Expect(addedMemorize.Notes).To(Equal("Initial review"))
+			Expect(addedMemorize.DateCompleted.IsZero()).To(BeTrue())
 		})
+
 	})
 
-	When("GET /photos/:id", func() {
+	When("GET /memorizes/:id", func() {
 		It("should return 401 Unauthorized if user is not logged in", func() {
-			req, _ := http.NewRequest(http.MethodGet, "/photos/1", nil)
+			req, _ := http.NewRequest(http.MethodGet, "/memorizes/1", nil)
 			router.ServeHTTP(resp, req)
 
 			Expect(resp.Code).To(Equal(http.StatusUnauthorized))
 			Expect(resp.Body.String()).To(ContainSubstring("Unauthorized"))
 		})
 
-		It("should get a photo by ID if user is logged in", func() {
+		It("should get a memorization record by ID if user is logged in", func() {
 			authRepo.Login("user")
 
-			photo := model.Photo{
-				UserID:    1,
-				URL:       "https://example.com/photo2.jpg",
-				Caption:   "A second photo",
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
+			memorize := model.Memorize{
+				SurahName:       "Al-Baqarah",
+				AyahRange:       "1-10",
+				TotalAyah:       10,
+				DateStarted:     time.Now(),
+				ReviewFrequency: "Daily",
+				Notes:           "Initial review",
 			}
 
-			photoID, err := dbRepo.AddPhoto(photo)
+			memorizeID, err := dbRepo.AddMemorize(memorize)
 			Expect(err).To(BeNil())
 
-			req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/photos/%d", photoID), nil)
+			req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/memorizes/%d", memorizeID), nil)
 			router.ServeHTTP(resp, req)
 
 			Expect(resp.Code).To(Equal(http.StatusOK))
 
-			var retrievedPhoto model.Photo
-			err = json.Unmarshal(resp.Body.Bytes(), &retrievedPhoto)
+			var fetchedMemorize model.Memorize
+			err = json.Unmarshal(resp.Body.Bytes(), &fetchedMemorize)
 			Expect(err).To(BeNil())
-			Expect(retrievedPhoto.ID).To(Equal(photoID))
-			Expect(retrievedPhoto.Caption).To(Equal("A second photo"))
+			Expect(fetchedMemorize.SurahName).To(Equal("Al-Baqarah"))
+			Expect(fetchedMemorize.AyahRange).To(Equal("1-10"))
+			Expect(fetchedMemorize.TotalAyah).To(Equal(10))
+			Expect(fetchedMemorize.DateStarted).To(BeTemporally("~", time.Now(), time.Minute))
+			Expect(fetchedMemorize.ReviewFrequency).To(Equal("Daily"))
+			Expect(fetchedMemorize.Notes).To(Equal("Initial review"))
+			Expect(fetchedMemorize.DateCompleted.IsZero()).To(BeTrue())
 		})
 	})
 
-	When("DELETE /photos/:id", func() {
+	When("DELETE /memorizes/:id", func() {
 		It("should return 401 Unauthorized if user is not logged in", func() {
-			req, _ := http.NewRequest(http.MethodDelete, "/photos/1", nil)
+			req, _ := http.NewRequest(http.MethodDelete, "/memorizes/1", nil)
 			router.ServeHTTP(resp, req)
 
 			Expect(resp.Code).To(Equal(http.StatusUnauthorized))
 			Expect(resp.Body.String()).To(ContainSubstring("Unauthorized"))
 		})
 
-		It("should delete a photo by ID if user is logged in", func() {
+		It("should delete a memorization record if user is logged in", func() {
 			authRepo.Login("user")
 
-			photo := model.Photo{
-				UserID:    1,
-				URL:       "https://example.com/photo3.jpg",
-				Caption:   "A third photo",
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
+			memorize := model.Memorize{
+				SurahName:       "Al-Baqarah",
+				AyahRange:       "1-10",
+				TotalAyah:       10,
+				DateStarted:     time.Now(),
+				ReviewFrequency: "Daily",
+				Notes:           "Initial review",
 			}
 
-			photoID, err := dbRepo.AddPhoto(photo)
+			memorizeID, err := dbRepo.AddMemorize(memorize)
 			Expect(err).To(BeNil())
 
-			req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/photos/%d", photoID), nil)
+			req, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("/memorizes/%d", memorizeID), nil)
 			router.ServeHTTP(resp, req)
 
 			Expect(resp.Code).To(Equal(http.StatusOK))
-			Expect(resp.Body.String()).To(ContainSubstring("Photo deleted"))
 
-			deletedPhoto, err := dbRepo.GetPhotoByID(photoID)
-			Expect(err).To(BeNil())
-			Expect(deletedPhoto.ID).To(Equal(uint(0))) // Expect ID to be 0 since the photo should be deleted
+			_, err = dbRepo.GetMemorizeByID(memorizeID)
+			Expect(err).To(Equal(fmt.Errorf("memorize record not found")))
 		})
 	})
 })

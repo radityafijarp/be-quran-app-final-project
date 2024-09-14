@@ -109,62 +109,34 @@ func SetupRouter(dbRepo *dbRepository.Repository, authRepo *authRepository.Repos
 		c.JSON(http.StatusOK, gin.H{"status": "Logged in", "User": user})
 	})
 
-	// router.GET("/test", func(c *gin.Context) {
-	// 	var request struct {
-	// 		Username string `json:"username"`
-	// 	}
-	// 	if err := c.ShouldBindJSON(&request); err != nil {
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	// 		return
-	// 	}
-
-	// 	user, err := dbRepo.GetUserByUsername(request.Username)
-	// 	if err != nil {
-	// 		log.Printf("Error fetching user: %v", err)
-	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching user data"})
-	// 		return
-	// 	}
-
-	// 	if user.Username == "" {
-	// 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-	// 		return
-	// 	}
-
-	// 	c.JSON(http.StatusOK, gin.H{
-	// 		"username": user.Username,
-	// 		"password": user.Password,
-	// 		"fullname": user.Fullname,
-	// 	})
-	// })
-
 	protected := router.Group("/")
 	protected.Use(AuthMiddleware(authRepo))
 	{
-		protected.GET("/photos", func(c *gin.Context) {
+		protected.GET("/memorizes", func(c *gin.Context) {
 			username := authRepo.LoggedInUser.Username
-			photos, err := dbRepo.GetAllPhotosByUser(username)
+			memorizes, err := dbRepo.GetAllMemorizesByUser(username)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
-			c.JSON(http.StatusOK, photos)
+			c.JSON(http.StatusOK, memorizes)
 		})
 
-		protected.GET("/photos/:id", func(c *gin.Context) {
+		protected.GET("/memorizes/:id", func(c *gin.Context) {
 			id := c.Param("id")
-			photoID := 0
-			fmt.Sscanf(id, "%d", &photoID)
-			photo, err := dbRepo.GetPhotoByID(uint(photoID))
+			memorizeID := 0
+			fmt.Sscanf(id, "%d", &memorizeID)
+			memorize, err := dbRepo.GetMemorizeByID(uint(memorizeID))
 			if err != nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Photo not found"})
+				c.JSON(http.StatusNotFound, gin.H{"error": "Memorize record not found"})
 				return
 			}
-			c.JSON(http.StatusOK, photo)
+			c.JSON(http.StatusOK, memorize)
 		})
 
-		protected.POST("/photos", func(c *gin.Context) {
-			var photo model.Photo
-			if err := c.ShouldBindJSON(&photo); err != nil {
+		protected.POST("/memorizes", func(c *gin.Context) {
+			var memorize model.Memorize
+			if err := c.ShouldBindJSON(&memorize); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
@@ -175,26 +147,26 @@ func SetupRouter(dbRepo *dbRepository.Repository, authRepo *authRepository.Repos
 				return
 			}
 
-			photo.UserID = user.ID
-			photoID, err := dbRepo.AddPhoto(photo)
+			memorize.UserID = user.ID
+			memorizeID, err := dbRepo.AddMemorize(memorize)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
 
-			c.JSON(http.StatusCreated, gin.H{"photo_id": photoID})
+			c.JSON(http.StatusCreated, gin.H{"memorize_id": memorizeID})
 		})
 
-		protected.DELETE("/photos/:id", func(c *gin.Context) {
+		protected.DELETE("/memorizes/:id", func(c *gin.Context) {
 			id := c.Param("id")
-			photoID := 0
-			fmt.Sscanf(id, "%d", &photoID)
-			err := dbRepo.DeletePhoto(uint(photoID))
+			memorizeID := 0
+			fmt.Sscanf(id, "%d", &memorizeID)
+			err := dbRepo.DeleteMemorize(uint(memorizeID))
 			if err != nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Photo not found"})
+				c.JSON(http.StatusNotFound, gin.H{"error": "Memorize record not found"})
 				return
 			}
-			c.JSON(http.StatusOK, gin.H{"status": "Photo deleted"})
+			c.JSON(http.StatusOK, gin.H{"status": "Memorize record deleted"})
 		})
 	}
 
@@ -219,11 +191,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err = dbConn.Migrator().DropTable("users", "photos"); err != nil {
+	if err = dbConn.Migrator().DropTable("users", "memorizes"); err != nil {
 		log.Fatal("failed dropping table:" + err.Error())
 	}
 
-	if err = dbConn.AutoMigrate(&model.User{}, &model.Photo{}); err != nil {
+	if err = dbConn.AutoMigrate(&model.User{}, &model.Memorize{}); err != nil {
 		log.Fatal("failed migrating table:" + err.Error())
 	}
 

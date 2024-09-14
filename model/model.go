@@ -13,14 +13,20 @@ type User struct {
 	Fullname   string
 	Desc       string
 	ProfilePic string
-	Photos     []Photo
+	Memorizes  []Memorize
 }
 
-type Photo struct {
+type Memorize struct {
 	gorm.Model
-	UserID    uint
-	URL       string
-	Caption   string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	UserID          uint
+	SurahName       string
+	AyahRange       string
+	TotalAyah       int
+	DateStarted     time.Time
+	DateCompleted   time.Time
+	ReviewFrequency string
+	LastReviewDate  time.Time
+	AccuracyLevel   string
+	NextReviewDate  time.Time
+	Notes           string
 }
