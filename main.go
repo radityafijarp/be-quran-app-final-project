@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
 	"gorm.io/driver/postgres"
@@ -52,6 +53,14 @@ func Connect(creds *Credential) (*gorm.DB, error) {
 func SetupRouter(dbRepo *dbRepository.Repository, authRepo *authRepository.Repository) *gin.Engine {
 	svc := service.NewService(*dbRepo, authRepo)
 	router := gin.Default()
+
+	// Enable CORS for all origins, methods, and headers
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
 
 	router.GET("/health", func(c *gin.Context) {
 		c.String(http.StatusOK, "OK")
