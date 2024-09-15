@@ -9,6 +9,9 @@ import (
 	"log"
 	"net/http"
 
+	"time"
+
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
@@ -26,13 +29,40 @@ type Credential struct {
 	Schema       string
 }
 
+var jwtSecret = []byte("helloWorld") // secret key
+
 func AuthMiddleware(authRepo *authRepository.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !authRepo.IsLoggedIn() {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
 			c.Abort()
 			return
 		}
+
+		tokenString := authHeader[len("Bearer "):]
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return jwtSecret, nil
+		})
+
+		if err != nil || !token.Valid {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			c.Abort()
+			return
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok || claims["username"] == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			c.Abort()
+			return
+		}
+
+		// Set user information in the context
+		c.Set("username", claims["username"])
 		c.Next()
 	}
 }
@@ -108,26 +138,38 @@ func SetupRouter(dbRepo *dbRepository.Repository, authRepo *authRepository.Repos
 			return
 		}
 
-		err = svc.Login(credentials.Username, credentials.Password)
+		// Create JWT token
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"username": user.Username,
+			"exp":      time.Now().Add(time.Hour * 24).Unix(), // Token expiration
+		})
+
+		tokenString, err := token.SignedString(jwtSecret)
 		if err != nil {
-			log.Printf("Login error: %v", err)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"status": "Logged in", "User": user})
+		c.JSON(http.StatusOK, gin.H{
+			"status": "Logged in",
+			"token":  tokenString,
+		})
 	})
 
 	protected := router.Group("/")
 	protected.Use(AuthMiddleware(authRepo))
 	{
 		protected.GET("/memorizes", func(c *gin.Context) {
-			username := authRepo.LoggedInUser.Username
+			// Retrieve the username from the context
+			username := c.GetString("username")
+
+			// Fetch memorizes for the user
 			memorizes, err := dbRepo.GetAllMemorizesByUser(username)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
+
 			c.JSON(http.StatusOK, memorizes)
 		})
 
@@ -145,24 +187,34 @@ func SetupRouter(dbRepo *dbRepository.Repository, authRepo *authRepository.Repos
 
 		protected.POST("/memorizes", func(c *gin.Context) {
 			var memorize model.Memorize
+
+			// Bind the JSON request body to the `memorize` struct
 			if err := c.ShouldBindJSON(&memorize); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
 
-			user, err := dbRepo.GetUserByUsername(authRepo.LoggedInUser.Username)
+			// Get the logged-in username from the context
+			username := c.GetString("username")
+
+			// Retrieve the user by username from the database
+			user, err := dbRepo.GetUserByUsername(username)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
 				return
 			}
 
+			// Set the UserID field for the memorize record
 			memorize.UserID = user.ID
+
+			// Add the memorize record to the database
 			memorizeID, err := dbRepo.AddMemorize(memorize)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
 
+			// Return the created memorize record ID
 			c.JSON(http.StatusCreated, gin.H{"memorize_id": memorizeID})
 		})
 

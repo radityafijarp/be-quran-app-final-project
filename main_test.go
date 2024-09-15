@@ -8,15 +8,24 @@ import (
 	"bytes"
 	"encoding/json"
 
-	// "fmt"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+func generateJWT(username string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username": username,
+		"exp":      time.Now().Add(time.Hour * 24).Unix(),
+	})
+	return token.SignedString("helloWorld") // Use your JWT secret here
+}
 
 var (
 	resp     *httptest.ResponseRecorder
@@ -167,7 +176,7 @@ var _ = Describe("Main", Ordered, func() {
 			Expect(err).To(BeNil())
 
 			Expect(response["status"]).To(Equal("Logged in"))
-			Expect(response["User"]).NotTo(BeNil())
+			Expect(response["token"]).NotTo(BeNil()) // Check that a JWT token is returned
 		})
 
 		It("should return 401 Unauthorized with invalid credentials", func() {
@@ -195,13 +204,16 @@ var _ = Describe("Main", Ordered, func() {
 		})
 
 		It("should return memorization records if user is logged in", func() {
-			// Log in the user first
-			authRepo.Login("user")
+			// Generate a JWT token for the logged-in user
+			token, _ := generateJWT("user")
 
 			req, _ := http.NewRequest(http.MethodGet, "/memorizes", nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+
 			router.ServeHTTP(resp, req)
 
 			Expect(resp.Code).To(Equal(http.StatusOK))
+			// Add further checks to validate the returned data if necessary
 		})
 	})
 
@@ -224,8 +236,8 @@ var _ = Describe("Main", Ordered, func() {
 		})
 
 		It("should add a new memorization record if user is logged in", func() {
-			// Log in the user first
-			authRepo.Login("user")
+			// Generate a JWT token for the logged-in user
+			token, _ := generateJWT("user")
 
 			memorize := model.Memorize{
 				SurahName:       "Al-Baqarah",
@@ -237,6 +249,8 @@ var _ = Describe("Main", Ordered, func() {
 			}
 			body, _ := json.Marshal(memorize)
 			req, _ := http.NewRequest(http.MethodPost, "/memorizes", bytes.NewBuffer(body))
+			req.Header.Set("Authorization", "Bearer "+token)
+
 			router.ServeHTTP(resp, req)
 
 			Expect(resp.Code).To(Equal(http.StatusCreated))
@@ -259,7 +273,50 @@ var _ = Describe("Main", Ordered, func() {
 			Expect(addedMemorize.Notes).To(Equal("Initial review"))
 			Expect(addedMemorize.DateCompleted.IsZero()).To(BeTrue())
 		})
+	})
 
+	When("GET /memorizes/:id", func() {
+		It("should return 401 Unauthorized if user is not logged in", func() {
+			req, _ := http.NewRequest(http.MethodGet, "/memorizes/1", nil)
+			router.ServeHTTP(resp, req)
+
+			Expect(resp.Code).To(Equal(http.StatusUnauthorized))
+			Expect(resp.Body.String()).To(ContainSubstring("Unauthorized"))
+		})
+
+		It("should get a memorization record by ID if user is logged in", func() {
+			token, _ := generateJWT("user")
+
+			memorize := model.Memorize{
+				SurahName:       "Al-Baqarah",
+				AyahRange:       "1-10",
+				TotalAyah:       10,
+				DateStarted:     time.Now(),
+				ReviewFrequency: "Daily",
+				Notes:           "Initial review",
+			}
+
+			memorizeID, err := dbRepo.AddMemorize(memorize)
+			Expect(err).To(BeNil())
+
+			req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/memorizes/%d", memorizeID), nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+
+			router.ServeHTTP(resp, req)
+
+			Expect(resp.Code).To(Equal(http.StatusOK))
+
+			var fetchedMemorize model.Memorize
+			err = json.Unmarshal(resp.Body.Bytes(), &fetchedMemorize)
+			Expect(err).To(BeNil())
+			Expect(fetchedMemorize.SurahName).To(Equal("Al-Baqarah"))
+			Expect(fetchedMemorize.AyahRange).To(Equal("1-10"))
+			Expect(fetchedMemorize.TotalAyah).To(Equal(10))
+			Expect(fetchedMemorize.DateStarted).To(BeTemporally("~", time.Now(), time.Minute))
+			Expect(fetchedMemorize.ReviewFrequency).To(Equal("Daily"))
+			Expect(fetchedMemorize.Notes).To(Equal("Initial review"))
+			Expect(fetchedMemorize.DateCompleted.IsZero()).To(BeTrue())
+		})
 	})
 
 	// When("GET /memorizes/:id", func() {
