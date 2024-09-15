@@ -87,3 +87,7 @@ func (r *Repository) GetAllMemorizesByUser(username string) ([]model.Memorize, e
 	}
 	return memorizes, nil
 }
+
+func (r *Repository) UpdateMemorize(memorize model.Memorize) error {
+	return r.db.Save(&memorize).Error
+}

@@ -229,6 +229,48 @@ func SetupRouter(dbRepo *dbRepository.Repository, authRepo *authRepository.Repos
 			}
 			c.JSON(http.StatusOK, gin.H{"status": "Memorize record deleted"})
 		})
+
+		protected.PUT("/memorizes/:id", func(c *gin.Context) {
+			id := c.Param("id")
+			memorizeID := 0
+			fmt.Sscanf(id, "%d", &memorizeID)
+
+			// Retrieve the existing memorize record by ID
+			existingMemorize, err := dbRepo.GetMemorizeByID(uint(memorizeID))
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Memorize record not found"})
+				return
+			}
+
+			// Bind the JSON request body to the memorize struct
+			var updatedMemorize model.Memorize
+			if err := c.ShouldBindJSON(&updatedMemorize); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+
+			// Update the existing memorize fields with the new data
+			existingMemorize.SurahName = updatedMemorize.SurahName
+			existingMemorize.AyahRange = updatedMemorize.AyahRange
+			existingMemorize.TotalAyah = updatedMemorize.TotalAyah
+			existingMemorize.DateStarted = updatedMemorize.DateStarted
+			existingMemorize.DateCompleted = updatedMemorize.DateCompleted
+			existingMemorize.ReviewFrequency = updatedMemorize.ReviewFrequency
+			existingMemorize.LastReviewDate = updatedMemorize.LastReviewDate
+			existingMemorize.AccuracyLevel = updatedMemorize.AccuracyLevel
+			existingMemorize.NextReviewDate = updatedMemorize.NextReviewDate
+			existingMemorize.Notes = updatedMemorize.Notes
+
+			// Save the updated memorize record to the database
+			err = dbRepo.UpdateMemorize(existingMemorize)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update memorize record"})
+				return
+			}
+
+			c.JSON(http.StatusOK, existingMemorize)
+		})
+
 	}
 
 	router.NoRoute(func(c *gin.Context) {
