@@ -289,19 +289,81 @@ func main() {
 		Port:         5432,
 	}
 
+	// Connect to the database
 	dbConn, err := Connect(&dbCredential)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	// Drop the tables if they exist
 	if err = dbConn.Migrator().DropTable("users", "memorizes"); err != nil {
 		log.Fatal("failed dropping table:" + err.Error())
 	}
 
+	// Auto-migrate to create tables
 	if err = dbConn.AutoMigrate(&model.User{}, &model.Memorize{}); err != nil {
 		log.Fatal("failed migrating table:" + err.Error())
 	}
 
+	// Insert dummy data
+	dummyUser := model.User{
+		Username: "john_doe",
+		Password: "password123", // You should hash the password in real implementation
+	}
+
+	dummyUser2 := model.User{
+		Username: "jane_doe",
+		Password: "password456", // You should hash the password in real implementation
+	}
+
+	// Add dummy users to the database
+	if err := dbConn.Create(&dummyUser).Error; err != nil {
+		log.Fatal("failed adding dummy user 1: " + err.Error())
+	}
+
+	if err := dbConn.Create(&dummyUser2).Error; err != nil {
+		log.Fatal("failed adding dummy user 2: " + err.Error())
+	}
+
+	// Add memorizes for the first dummy user
+	dummyMemorize := model.Memorize{
+		UserID:          dummyUser.ID,
+		SurahName:       "Al-Fatiha",
+		AyahRange:       "1-7",
+		TotalAyah:       7,
+		DateStarted:     time.Now(),
+		DateCompleted:   time.Now().AddDate(0, 0, 7),
+		ReviewFrequency: "Weekly",
+		LastReviewDate:  time.Now(),
+		AccuracyLevel:   "95",
+		NextReviewDate:  time.Now().AddDate(0, 0, 7),
+		Notes:           "Review after one week",
+	}
+
+	dummyMemorize2 := model.Memorize{
+		UserID:          dummyUser.ID,
+		SurahName:       "Al-Baqarah",
+		AyahRange:       "1-5",
+		TotalAyah:       5,
+		DateStarted:     time.Now(),
+		DateCompleted:   time.Now().AddDate(0, 0, 14),
+		ReviewFrequency: "Biweekly",
+		LastReviewDate:  time.Now(),
+		AccuracyLevel:   "95",
+		NextReviewDate:  time.Now().AddDate(0, 0, 14),
+		Notes:           "Review after two weeks",
+	}
+
+	// Add dummy memorizes to the database
+	if err := dbConn.Create(&dummyMemorize).Error; err != nil {
+		log.Fatal("failed adding dummy memorize 1: " + err.Error())
+	}
+
+	if err := dbConn.Create(&dummyMemorize2).Error; err != nil {
+		log.Fatal("failed adding dummy memorize 2: " + err.Error())
+	}
+
+	// Set up repositories and router
 	authRepo := authRepository.NewRepository()
 	dbRepo := dbRepository.NewRepository(dbConn)
 	router := SetupRouter(dbRepo, authRepo)

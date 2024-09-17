@@ -1,362 +1,175 @@
-# Hacktogram - Backend
+# Memorization Tracker API
 
-## Course Project
+This is a RESTful API for tracking Quran memorization progress, implemented using the GIN framework and GORM for database handling.
 
-### Description
+## Getting Started
 
-Pada project ini, Anda diminta untuk membangun backend menggunakan **Gin** dan **Gorm** untuk aplikasi _Hacktogram_ yang telah kamu bangun sebelumnya sebagai pengganti dari json-server yang ada. Fitur-fitur yang perlu Anda implementasikan adalah:
+### Prerequisites
 
-- Membuat API untuk _Register_.
-- Membuat API untuk _Sign In_.
-- Membuat middleware untuk _protected route_.
-- Membuat API untuk mendapatkan seluruh data _photo_ yang dimiliki oleh _user_ yang berhasil _Sign In_.
-- Membuat API untuk mendapatkan detail _photo_.
-- Membuat API untuk menambahkan _photo_ _user_.
-- Membuat handler untuk menangani **Not found**.
+- Go 1.19 or later
+- PostgreSQL database
+- GIN framework
+- GORM library
 
-API ini memiliki dua endpoint yaitu: `/users` dan `/photos`.
+### Installation
 
-- Endpoint `/users` digunakan management _user authentication_.
-- Endpoint `/photos` digunakan untuk mengakses data photo.
+1. Clone the repository:
+    ```bash
+    git clone https://github.com/radityafijarp/be-quran-app-final-project.git
+    cd your-repository
+    ```
 
-### Struktur file dan folder
+2. Install the required Go modules:
+    ```bash
+    go mod tidy
+    ```
 
-API ini memiliki tiga folder yaitu: `/model`, `/repository` dan `/service`.
-- Folder `/` (root) berisi file utama `main.go` yang kita gunakan untuk inisialisasi aplikasi dan routing serta file pendukung lainnya.
-- Folder `/model` berisi struktur data yang digunakan termasuk struktur data yang terdapat di database.
-- Folder `/repository` berisi 2 sub-folder yaitu:
-  - Subfolder `authRepository` berisi kode untuk melakukan otentikasi user.
-  - Subfolder `dbRepository` berisi kode untuk berinteraksi dengan database.
-- Folder `/service` berisi kode untuk melakukan interaksi dengan data, dalam hal ini melakukan registrasi dan login.
+3. Set up your PostgreSQL database and modify the `dbCredential` in `main.go` to match your database credentials.
 
-### Database Model and Schema
+### Running the Server
 
-Aplikasi ini memiliki 2 tabel utama, yaitu `users`, `photos`. Tabel `users` digunakan untuk menyimpan data-data user, tabel `photos` digunakan untuk menyimpan data photo.
+To run the server, use the following command:
 
-Tabel `users` hanya dapat memiliki satu sessions, dan tabel `sessions` dapat memiliki banyak users. Tabel `users` dan `sessions` memiliki relasi one-to-many.
+```bash
+go run main.go
+```
+This will start the API server at http://localhost:8080.
 
-Tabel `users` memiliki relasi one-to-many dengan tabel `photos`, dimana banyak photos dapat terdaftar pada satu user. Kolom `user_id` pada tabel `photos` merupakan foreign key yang mengacu pada primary key `id` pada tabel `users`.
+### Running Test Code
+To run the tests for the project, execute the following command:
+```bash
+go test 
+```
+This will run all the test files located in your project.
 
-> **Note**: aplikasi ini menggunakan GORM untuk management data repository ke database postgresql
+### Endpoints and Usage
+#### Authentication Endpoints
+1. Register a User
+    - Endpoint: POST /users
+    - Request Body:
 
-### Middleware
+      ```bash
+      {
+        "username": "john_doe",
+        "password": "password123"
+      }
+      ```
+    - Response: Status 201 Created or 409 Conflict if the username is already registered.
+2. Login User
+    - Endpoint: POST /users
+    - Request Body:
 
-Pada sebagian endpoint kamu perlu menaruh middleware untuk memastikan bahwa endpoint tersebut hanya bisa diakses oleh _user_ yang sudah _Sign In_.
+      ```bash
+      {
+        "username": "john_doe",
+        "password": "password123"
+      }
+      ```
+    - Response: Status 200 OK with JWT token.
 
-### Endpoint Specifications
+#### Memorization Endpoints
+Authenticated requests to the following endpoints must include a JWT token in the Authorization header like so:
 
-Berikut adalah spesifikasi dari masing-masing endpoint yang harus Anda buat:
-
-#### 1. **Register User**
-
-- **Method**: `POST`
-- **Endpoint**: `/users`
-- **Description**: Membuat pengguna baru.
-- **Request Body**:
-  ```json
-  {
-    "username": "djarotpurnomo",
-    "password": "admin#1234",
-    "fullname": "Djarot Purnomo",
-    "desc": "Admin User",
-    "profilePic": "https://images.unsplash.com/photo-1544642058-1f01423e7a16"
-  }
+  ```bash
+  Authorization: Bearer <your-token>
   ```
-- **Response**:
-  - Success: Status `201 Created` dengan data pengguna yang baru dibuat.
-  - Failure: Status `400 Bad Request` jika data tidak valid.
-  - Failure: Status `409 Conflict` jika username sudah digunakan oleh pengguna lain.
+1. Get All Memorizes
+      - Endpoint: GET /memorizes
+      - Response: List of all memorization records associated with the authenticated user.
 
-#### 2. **Sign In User**
+2. Get a Specific Memorize
+      - Endpoint: GET /memorizes/:id
+      - Response: Memorization record with the specified id.
 
-- **Method**: `POST`
-- **Endpoint**: `/signin`
-- **Description**: Autentikasi pengguna dan menyimpan informasi pengguna yang berhasil login di memori.
-- **Request Body**:
-  ```json
-  {
-    "username": "djarotpurnomo",
-    "password": "admin#1234"
-  }
-  ```
-- **Response**:
-  - Success: Status `200 OK` dengan data pengguna yang berhasil login. Informasi pengguna yang login akan disimpan di in-memory.
-  - Failure: Status `401 Unauthorized` jika username atau password salah.
+3. Add a Memorize
+      - Endpoint: POST /memorizes
+      - Request Body
 
-#### 3. **Get All Photos by User**
+        ``` bash
+        {
+        "surahName": "Al-Fatiha",
+        "ayahRange": "1-7",
+        "totalAyah": 7,
+        "dateStarted": "2024-09-17T00:00:00Z",
+        "dateCompleted": "2024-09-24T00:00:00Z",
+        "reviewFrequency": "Weekly",
+        "lastReviewDate": "2024-09-17T00:00:00Z",
+        "accuracyLevel": "95",
+        "nextReviewDate": "2024-09-24T00:00:00Z",
+        "notes": "Review after one week"
+        }
+        ```
+    - Response: Status 201 Created with the ID of the new memorization record.
 
-- **Method**: `GET`
-- **Endpoint**: `/photos`
-- **Description**: Mendapatkan semua foto yang dimiliki oleh pengguna yang sedang login.
-- **Response**:
-  - Success: Status `200 OK` dengan daftar foto.
-  - Failure: Status `401 Unauthorized` jika pengguna tidak terautentikasi.
+4. Update a Memorize
+    - Endpoint: PUT /memorizes/:id
+    - Request Body: Similar to the POST /memorizes body, but for updating a specific record.
+    - Response: Status 200 OK with the updated record.
 
-#### 4. **Get Photo Detail by ID**
+5. Delete a Memorize
+    - Endpoint: DELETE /memorizes/:id
+    - Response: Status 200 OK when the record is successfully deleted.
 
-- **Method**: `GET`
-- **Endpoint**: `/photos/:id`
-- **Description**: Mendapatkan detail foto berdasarkan ID.
-- **Response**:
-  - Success: Status `200 OK` dengan detail foto.
-  - Failure: Status `404 Not Found` jika foto tidak ditemukan.
-  - Failure: Status `401 Unauthorized` jika pengguna tidak terautentikasi.
+#### Dummy User Credentials
+You can use the following dummy user accounts for testing login:
+1. John Doe
+    - Username: john_doe
+    - Password: password123
 
-#### 5. **Create New Photo**
+2. Jane Doe
+    - Username: jane_doe
+    - Password: password456
 
-- **Method**: `POST`
-- **Endpoint**: `/photos`
-- **Description**: Menambahkan foto baru untuk pengguna yang sedang login.
-- **Request Body**:
-  ```json
-  {
-    "url": "https://images.unsplash.com/photo-1544642058-1f01423e7a16",
-    "caption": "A beautiful sunset"
-  }
-  ```
-- **Response**:
-  - Success: Status `201 Created` dengan data foto yang baru ditambahkan.
-  - Failure: Status `401 Unauthorized` jika pengguna tidak terautentikasi.
+#### JWT Authentication
+For any protected route (like accessing or managing memorizes), you will need to include a valid JWT token in the Authorization header.
 
-#### 6. **Delete Photo**
+After logging in via the /signin endpoint, you will receive a token in the response:
 
-- **Method**: `DELETE`
-- **Endpoint**: `/photos/:id`
-- **Description**: Menghapus foto berdasarkan ID.
-- **Response**:
-  - Success: Status `200 OK` jika foto berhasil dihapus.
-  - Failure: Status `404 Not Found` jika foto tidak ditemukan.
-  - Failure: Status `401 Unauthorized` jika pengguna tidak terautentikasi.
+``` bash
+{
+  "status": "Logged in",
+  "token": "your-jwt-token-here"
+}
+```
 
-#### 7. **Health Check**
+Include this token in the Authorization header for protected routes:
+``` bash
+Authorization: Bearer your-jwt-token-here
+```
 
-- **Method**: `GET`
-- **Endpoint**: `/health`
-- **Description**: Menampilkan status kesehatan server.
-- **Response**: Status `200 OK` dengan pesan `OK`.
+### Database Configuration
+Make sure you have a PostgreSQL database running and update the connection settings in main.go:
 
-#### 8. **Page Not Found Handler**
-
-- **Method**: `ANY`
-- **Endpoint**: `*`
-- **Description**: Handler untuk menangani route yang tidak ditemukan.
-- **Response**: Status `404 Not Found` dengan pesan error.
-
-## In-Memory Session Management
-
-Untuk menyimpan informasi pengguna yang telah login, kamu bisa mempelajarinya di `repository/authRepository`. Untuk service ini kita hanya menyimpan satu user yang bisa login di API kita.
-
-### **Perhatian**
-
-Sebelum kalian menjalankan `grader-cli test`, pastikan kalian sudah mengubah database credentials pada file **`main.go`** (line 208) dan **`main_test.go`** (line 29) sesuai dengan database kalian. Kalian cukup mengubah nilai dari `"username"`, `"password"` dan `"database_name"`saja.
-
-Contoh:
-
-```go
-dbCredentials = Credential{
+``` bash
+dbCredential := Credential{
     Host:         "localhost",
-    Username:     "postgres", // <- ubah ini
-    Password:     "postgres", // <- ubah ini
-    DatabaseName: "kampusmerdeka", // <- ubah ini
+    Username:     "postgres",
+    Password:     "your-password",
+    DatabaseName: "your-database",
     Port:         5432,
 }
 ```
+### Data Models
+- User: Handles user information such as Username and Password.
+- Memorize: Tracks Quran memorization progress for a user, including fields like SurahName, AyahRange, TotalAyah, and ReviewFrequency.
 
-### Test Case Examples
-
-#### Test Case 1
-
-**Input**:
-
-```http
-GET /health
-```
-
-**Expected Output / Behavior**:
-
-```http
-HTTP status code: 200 OK
-Response body: "OK"
-```
-
-**Explanation**:
-
-```txt
-Ketika melakukan request GET /health, server akan merespons dengan kode status HTTP 200 OK dan body "OK", yang menunjukkan bahwa server berjalan dengan normal.
-```
-
-#### Test Case 2
-
-**Input**:
-
-```http
-POST /users
-Content-Type: application/json
+### Error Handling
+For error responses, the API follows the structure:
+``` bash
 {
-    "username": "djarotpurnomo",
-    "password": "admin#1234",
-    "fullname": "Djarot Purnomo",
-    "desc": "Admin User",
-    "profilePic": "https://images.unsplash.com/photo-1544642058-1f01423e7a16"
+  "error": "Error message here"
 }
 ```
 
-**Expected Output / Behavior**:
+### Further Improvements
+- Add proper password hashing for secure storage of passwords.
+- Add more robust validation for input fields.
+- Implement rate-limiting for authentication requests.
 
-```http
-HTTP status code: 201 Created
-Response body: {
-  "status": "Created",
-  "User": {
-    "username": "djarotpurnomo",
-    "password": "admin#1234",
-    "fullname": "Djarot Purnomo",
-    "desc": "Admin User",
-    "profile_pic": "https://images.unsplash.com/photo-1544642058-1f01423e7a16"
-  }
-}
-```
+### License
+This project is licensed under the MIT License.
 
-**Explanation**:
 
-```txt
-Ketika melakukan request POST /users dengan data pengguna baru yang valid, server akan mendaftarkan pengguna baru dan merespons dengan kode status HTTP 201 Created serta informasi pengguna yang baru terdaftar.
-```
-
-#### Test Case 3
-
-**Input**:
-
-```http
-POST /signin
-Content-Type: application/json
-
-{
-  "username": "djarotpurnomo",
-  "password": "admin#1234"
-}
-```
-
-**Expected Output / Behavior**:
-
-```http
-HTTP status code: 200 OK
-Response body: {
-  "status": "Logged in",
-  "User": {
-    "username": "djarotpurnomo",
-    "fullname": "Djarot Purnomo",
-    "desc": "Admin User",
-    "profile_pic": "https://images.unsplash.com/photo-1544642058-1f01423e7a16"
-  }
-}
-```
-
-**Explanation**:
-
-```txt
-Ketika melakukan request POST /signin dengan kredensial yang valid, server akan melakukan proses login dan merespons dengan kode status HTTP 200 OK serta informasi pengguna yang berhasil login.
-```
-
-#### Test Case 4
-
-**Input**:
-
-```http
-GET /photos
-```
-
-**Expected Output / Behavior**:
-
-```http
-HTTP status code: 401 Unauthorized
-Response body: {
-  "error": "Unauthorized"
-}
-```
-
-**Explanation**:
-
-```txt
-Ketika melakukan request GET /photos tanpa login, server akan merespons dengan kode status HTTP 401 Unauthorized dan pesan kesalahan "Unauthorized".
-```
-
-#### Test Case 5
-
-**Input**:
-
-```http
-POST /photos
-Content-Type: application/json
-
-{
-  "url": "https://images.unsplash.com/photo-1544642058-1f01423e7a16",
-  "caption": "A beautiful sunset"
-}
-```
-
-**Expected Output / Behavior**:
-
-```http
-HTTP status code: 201 Created
-Response body: {
-  "photo_id": 1
-}
-```
-
-**Explanation**:
-
-```txt
-Ketika melakukan request POST /photos dengan data foto yang valid setelah login, server akan menambahkan foto baru yang terkait dengan pengguna yang login dan merespons dengan kode status HTTP 201 Created serta ID dari foto yang baru ditambahkan.
-```
-
-#### Test Case 6
-
-**Input**:
-
-```http
-GET /photos/1
-```
-
-**Expected Output / Behavior**:
-
-```http
-HTTP status code: 200 OK
-Response body: {
-  "id": 1,
-  "user_id": 1,
-  "url": "https://images.unsplash.com/photo-1544642058-1f01423e7a16",
-  "caption": "A beautiful sunset",
-  "created_at": "2023-04-05T12:00:00Z",
-  "updated_at": "2023-04-05T12:00:00Z"
-}
-```
-
-**Explanation**:
-
-```txt
-Ketika melakukan request GET /photos/1 setelah login, server akan merespons dengan kode status HTTP 200 OK serta informasi detail foto dengan ID 1 yang ditemukan dalam database.
-```
-
-#### Test Case 7
-
-**Input**:
-
-```http
-DELETE /photos/1
-```
-
-**Expected Output / Behavior**:
-
-```http
-HTTP status code: 200 OK
-Response body: {
-  "status": "Photo deleted"
-}
-```
-
-**Explanation**:
-
-```txt
-Ketika melakukan request DELETE /photos/1 setelah login, server akan menghapus foto dengan ID 1 dan merespons dengan kode status HTTP 200 OK serta pesan konfirmasi bahwa foto telah dihapus.
-```
+### Additional Notes:
+- This `README.md` explains how to run the server, the available API endpoints, test execution, and details about the dummy accounts.
+- If you add more features in the future, make sure to update the endpoint section accordingly.
