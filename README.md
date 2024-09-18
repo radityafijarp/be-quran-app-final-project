@@ -56,7 +56,7 @@ This will run all the test files located in your project.
       ```
     - Response: Status 201 Created or 409 Conflict if the username is already registered.
 2. Login User
-    - Endpoint: POST /users
+    - Endpoint: POST /signin
     - Request Body:
 
       ```bash
