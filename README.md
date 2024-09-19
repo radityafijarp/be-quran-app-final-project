@@ -36,11 +36,12 @@ go run main.go
 This will start the API server at http://localhost:8080.
 
 ### Running Test Code
-To run the tests for the project, execute the following command:
-```bash
-go test 
-```
-This will run all the test files located in your project.
+- Set up your PostgreSQL database and modify the `dbCredential` in `main_test.go` to match your database credentials.QL 
+- To run the tests for the project, execute the following command:
+  ```bash
+  go test 
+  ```
+  This will run all the test files located in your project.
 
 ### Endpoints and Usage
 #### Authentication Endpoints
@@ -136,8 +137,8 @@ Include this token in the Authorization header for protected routes:
 ``` bash
 Authorization: Bearer your-jwt-token-here
 ```
-
-### Database Configuration
+### Environment Variable
+#### Database Configuration
 Make sure you have a PostgreSQL database running and update the connection settings in main.go:
 
 ``` bash
@@ -149,6 +150,12 @@ dbCredential := Credential{
     Port:         5432,
 }
 ```
+
+#### JWT Secret
+``` bash
+JWT_SECRET=helloWorld
+```
+
 ### Data Models
 - User: Handles user information such as Username and Password.
 - Memorize: Tracks Quran memorization progress for a user, including fields like SurahName, AyahRange, TotalAyah, and ReviewFrequency.

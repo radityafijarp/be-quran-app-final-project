@@ -42,7 +42,7 @@ var _ = Describe("Main", Ordered, func() {
 	dbCredential := main.Credential{
 		Host:         "localhost",
 		Username:     "postgres",
-		Password:     "tanggal9bulan5",
+		Password:     "password",
 		DatabaseName: "kampusmerdeka",
 		Port:         5432,
 		Schema:       "public",
